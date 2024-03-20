@@ -1,7 +1,7 @@
 //
 //  XMLFeedParser.swift
 //
-//  Copyright (c) 2017 Nuno Manuel Dias
+//  Copyright (c) 2016 - 2018 Nuno Manuel Dias
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
 //  of this software and associated documentation files (the "Software"), to deal
@@ -23,6 +23,9 @@
 //
 
 import Foundation
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
 
 /// The actual engine behind the `FeedKit` framework. `XMLFeedParser` handles
 /// the parsing of RSS and Atom feeds. It is an `XMLParserDelegate` of
@@ -51,6 +54,15 @@ class XMLFeedParser: NSObject, XMLParserDelegate, FeedParserProtocol {
         super.init()
         self.xmlParser.delegate = self
     }
+    
+    /// An XML Feed Parser, for rss and atom feeds.
+    ///
+    /// - Parameter stream: An `InputStream` object containing an XML feed.
+    init(stream: InputStream) {
+        self.xmlParser = XMLParser(stream: stream)
+        super.init()
+        self.xmlParser.delegate = self
+    }
 
     /// The current path along the XML's DOM elements. Path components are
     /// updated to reflect the current XML element being parsed.
@@ -59,23 +71,32 @@ class XMLFeedParser: NSObject, XMLParserDelegate, FeedParserProtocol {
     fileprivate var currentXMLDOMPath: URL = URL(string: "/")!
     
     /// A parsing error, if any.
-    var parsingError: NSError?
+    var parsingError: Error?
+    var parseComplete = false
     
     /// Starts parsing the feed.
-    func parse() -> Result {
+    func parse() -> Result<Feed, ParserError> {
         let _ = self.xmlParser.parse()
         
         if let error = parsingError {
-            return Result.failure(error)
+            return .failure(.internalError(reason: error.localizedDescription))
         }
         
-        guard let feedType = self.feedType else {
-            return Result.failure(ParserError.feedNotFound.value)
+        guard let feedType = feedType else {
+            return .failure(.feedNotFound)
         }
         
         switch feedType {
-        case .atom: return Result.atom(self.atomFeed!)
-        case .rdf, .rss: return Result.rss(self.rssFeed!)
+        case .atom:
+            guard let atomFeed = atomFeed else {
+                return .failure(.internalError(reason: "Unable to initialize atom feed model"))
+            }
+            return .success(.atom(atomFeed))
+        case .rdf, .rss:
+            guard let rssFeed = rssFeed else {
+                return .failure(.internalError(reason: "Unable to initialize rss feed model"))
+            }
+            return .success(.rss(rssFeed))
         }
         
     }
@@ -167,13 +188,16 @@ extension XMLFeedParser {
     {
         // Update the current path along the XML's DOM elements by deleting last component.
         self.currentXMLDOMPath = self.currentXMLDOMPath.deletingLastPathComponent()
+        if currentXMLDOMPath.absoluteString == "/" {
+            parseComplete = true
+            xmlParser.abortParsing()
+        }
     }
     
-    func parser(_ parser: XMLParser, foundCDATA CDATABlock: Data)
-    {
+    func parser(_ parser: XMLParser, foundCDATA CDATABlock: Data) {
         guard let string = String(data: CDATABlock, encoding: .utf8) else {
             self.xmlParser.abortParsing()
-            self.parsingError = ParserError.feedCDATABlockEncodingError(path: self.currentXMLDOMPath.absoluteString).value
+            self.parsingError = ParserError.feedCDATABlockEncodingError(path: self.currentXMLDOMPath.absoluteString)
             return
         }
         self.map(string)
@@ -184,7 +208,11 @@ extension XMLFeedParser {
     }
     
     func parser(_ parser: XMLParser, parseErrorOccurred parseError: Error) {
-        self.parsingError = NSError(domain: parseError.localizedDescription, code: -1)
+        // Ignore errors that occur after a feed is successfully parsed. Some
+        // real-world feeds contain junk such as "[]" after the XML segment;
+        // just ignore this stuff.
+        guard !parseComplete, parsingError == nil else { return }
+        self.parsingError = parseError
     }
     
 }

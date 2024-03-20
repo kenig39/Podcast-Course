@@ -1,16 +1,15 @@
-# FeedKit
-
-An RSS, Atom and JSON Feed parser written in Swift
+![FeedKit](/FeedKit.png?raw=true)
 
 [![build status](https://travis-ci.org/nmdias/FeedKit.svg)](https://travis-ci.org/nmdias/FeedKit)
 [![cocoapods compatible](https://img.shields.io/badge/cocoapods-compatible-brightgreen.svg)](https://cocoapods.org/pods/FeedKit)
 [![carthage compatible](https://img.shields.io/badge/carthage-compatible-brightgreen.svg)](https://github.com/Carthage/Carthage)
 [![language](https://img.shields.io/badge/spm-compatible-brightgreen.svg)](https://swift.org)
+[![swift](https://img.shields.io/badge/swift-5.0-orange.svg)](https://github.com/nmdias/DefaultsKit/releases)
 
 ## Features
 
 - [x] [Atom](https://tools.ietf.org/html/rfc4287)
-- [x] [RSS 0.90](http://www.rssboard.org/rss-0-9-0), [0.91](http://www.rssboard.org/rss-0-9-1), [2.00](http://cyber.law.harvard.edu/rss/rss.html)
+- [x] RSS [0.90](http://www.rssboard.org/rss-0-9-0), [0.91](http://www.rssboard.org/rss-0-9-1), [1.00](http://web.resource.org/rss/1.0/spec), [2.00](http://cyber.law.harvard.edu/rss/rss.html)
 - [x] [JSON](https://jsonfeed.org/version/1)  
 - [x] Namespaces
     - [x] [Dublin Core](http://web.resource.org/rss/1.0/modules/dc/)
@@ -18,21 +17,17 @@ An RSS, Atom and JSON Feed parser written in Swift
     - [x] [Content](http://web.resource.org/rss/1.0/modules/content/)
     - [x] [Media RSS](http://www.rssboard.org/media-rss)
     - [x] [iTunes Podcasting Tags](https://help.apple.com/itc/podcasts_connect/#/itcb54353390)
-- [x] Dates Support
-    - [x] [RFC822](https://www.ietf.org/rfc/rfc0822.txt)
-    - [x] [RFC3999](https://www.ietf.org/rfc/rfc3339.txt)
-    - [x] [ISO8601](http://www.w3.org/TR/NOTE-datetime)
 - [x] [Documentation](http://cocoadocs.org/docsets/FeedKit)
 - [x] Unit Test Coverage
 
 ## Requirements
 
-![xcode](https://img.shields.io/badge/xcode-8.0%2b-lightgrey.svg)
-![ios](https://img.shields.io/badge/ios-8.0%2b-lightgrey.svg)
-![tvos](https://img.shields.io/badge/tvos-9.0%2b-lightgrey.svg)
-![watchos](https://img.shields.io/badge/watchos-2.0%2b-lightgrey.svg)
-![mac os](https://img.shields.io/badge/mac%20os-10.10%2b-lightgrey.svg)
-![mac os](https://img.shields.io/badge/ubuntu-16.04+-lightgrey.svg)
+![xcode](https://img.shields.io/badge/xcode-11-lightgrey.svg)
+![ios](https://img.shields.io/badge/ios-10-lightgrey.svg)
+![tvos](https://img.shields.io/badge/tvos-10-lightgrey.svg)
+![watchos](https://img.shields.io/badge/watchos-3-lightgrey.svg)
+![mac os](https://img.shields.io/badge/mac%20os-10.12-lightgrey.svg)
+![mac os](https://img.shields.io/badge/ubuntu-16.04-lightgrey.svg)
 
 Installation >> [`instructions`](https://github.com/nmdias/FeedKit/blob/master/INSTALL.md) <<
 
@@ -45,7 +40,7 @@ let feedURL = URL(string: "http://images.apple.com/main/rss/hotnews/hotnews.rss"
 
 Get an instance of `FeedParser`
 ```swift
-let parser = FeedParser(URL: feedURL) // or FeedParser(data: data)
+let parser = FeedParser(URL: feedURL) // or FeedParser(data: data) or FeedParser(xmlStream: stream)
 ```
 
 Then call `parse` or `parseAsync` to start parsing the feed...
@@ -72,35 +67,28 @@ let result = parser.parse()
 
 ## Parse Result
 
-Whichever the case, if parsing succeeds you should now have a `Strongly Typed Model` of an `RSS`, `Atom` or `JSON Feed`.
+FeedKit adopts Swift 5 Result type, as `Result<Feed, ParserError>`, and as such, if parsing succeeds you should now have a `Strongly Typed Model` of an `RSS`, `Atom` or `JSON Feed`, within the `Feed` enum:
+
 ```swift
 switch result {
-case let .atom(feed):       // Really Simple Syndication Feed Model
-case let .rss(feed):        // Atom Syndication Format Feed Model
-case let .json(feed):       // JSON Feed Model
-case let .failure(error):   
+case .success(let feed):
+    
+    // Grab the parsed feed directly as an optional rss, atom or json feed object
+    feed.rssFeed
+    
+    // Or alternatively...
+    switch feed {
+    case let .atom(feed):       // Atom Syndication Format Feed Model
+    case let .rss(feed):        // Really Simple Syndication Feed Model
+    case let .json(feed):       // JSON Feed Model
+    }
+    
+case .failure(let error):
+    print(error)
 }
-```
-
-
-#### Parse Success
-You can check if a Feed was `successfully` parsed or not.
-```swift
-result.isSuccess    // If parsing was a success
-result.isFailure    // If parsing failed
-result.error        // An error, if any
 ```
 
 ## Model Preview
-Safely bind a feed of your choosing:
-> You may find the example bellow useful, if you're dealing with only a single type of feed.
-```swift
-guard let feed = result.rssFeed, result.isSuccess else {
-    print(result.error)
-    return
-}
-```
-Then go through it's properties:
 
 > The RSS and Atom feed Models are rather extensive throughout the supported namespaces. These are just a preview of what's available.
 
@@ -152,8 +140,6 @@ item?.media
 // ...
 ```
 
-> Refer to the [`documentation`](http://cocoadocs.org/docsets/FeedKit) for the complete model properties and descriptions
-
 #### Atom
 
 ```swift
@@ -186,8 +172,6 @@ entry?.source
 entry?.rights
 // ...
 ```
-
-> Refer to the [`documentation`](http://cocoadocs.org/docsets/FeedKit) for the complete model properties and descriptions
 
 #### JSON
 
@@ -227,8 +211,6 @@ item?.attachments
 item?.extensions
 // ...
 ```
-
-> Refer to the [`documentation`](http://cocoadocs.org/docsets/FeedKit) for the complete model properties and descriptions
 
 ## License
 
