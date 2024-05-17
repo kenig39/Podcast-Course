@@ -26,7 +26,7 @@ class  APIService {
         DispatchQueue.global(qos: .background).async {
             let parser = FeedParser(URL: url)
             
-            parser?.parseAsync(result: { (result) in
+            parser.parseAsync(result: { (result) in
                 
                 
                 if let err = result.error{
